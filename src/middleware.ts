@@ -14,7 +14,8 @@ export async function middleware(req: NextRequest) {
     || pathname.startsWith("/profile")
     || pathname.startsWith("/billing")
     || pathname.startsWith("/admin")
-    || pathname.startsWith("/search");
+    || pathname.startsWith("/search")
+    || pathname.startsWith("/schedule");
 
   if (!needsAuth) return NextResponse.next();
 
@@ -44,6 +45,7 @@ export const config = {
     "/billing/:path*",
     "/admin/:path*",
     "/search",
+    "/schedule/:path*",
   ],
 };
 

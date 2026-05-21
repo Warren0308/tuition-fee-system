@@ -5,14 +5,14 @@ import { authOptions } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ extraFeeId: string }> }
+  { params }: { params: { extraFeeId: string } }
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const { extraFeeId } = await params;
+  const { extraFeeId } = params;
   const extraFeeIdNum = Number(extraFeeId);
 
   if (isNaN(extraFeeIdNum)) {

@@ -5,14 +5,14 @@ import { authOptions } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ enrollmentId: string }> }
+  { params }: { params: { enrollmentId: string } }
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const { enrollmentId } = await params;
+  const { enrollmentId } = params;
   const enrollmentIdNum = Number(enrollmentId);
 
   if (isNaN(enrollmentIdNum)) {

@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { normalizeMalaysiaPhone } from "@/lib/phone-utils";
+
+export { normalizeMalaysiaPhone };
 
 /**
  * 通知发送服务 - 统一入口
@@ -21,25 +24,6 @@ function getWhatsAppConfig(): WhatsAppConfig | null {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!apiUrl || !accessToken || !phoneNumberId) return null;
   return { apiUrl, accessToken, phoneNumberId };
-}
-
-/**
- * 格式化马来西亚电话号码
- * 0123456789 -> 60123456789
- * +60123456789 -> 60123456789
- * 60123456789 -> 60123456789
- */
-export function normalizeMalaysiaPhone(phone: string): string {
-  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
-  if (cleaned.startsWith('+')) {
-    cleaned = cleaned.slice(1);
-  }
-  if (cleaned.startsWith('0')) {
-    cleaned = '60' + cleaned.slice(1);
-  } else if (!cleaned.startsWith('60')) {
-    cleaned = '60' + cleaned;
-  }
-  return cleaned;
 }
 
 /**

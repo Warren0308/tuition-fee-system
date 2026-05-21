@@ -3,13 +3,8 @@
  * 系统生成文案 → 跳转 WhatsApp App/网页 → 收费员点发送
  */
 
-export function normalizeMalaysiaPhone(phone: string): string {
-  let cleaned = phone.replace(/[\s\-\(\)]/g, "");
-  if (cleaned.startsWith("+")) cleaned = cleaned.slice(1);
-  if (cleaned.startsWith("0")) cleaned = "60" + cleaned.slice(1);
-  else if (!cleaned.startsWith("60")) cleaned = "60" + cleaned;
-  return cleaned;
-}
+import { normalizeMalaysiaPhone } from "@/lib/phone-utils";
+export { normalizeMalaysiaPhone };
 
 /** 构建 WhatsApp 分享 URL；message 为空则只打开对话（用于手动发 PDF） */
 export function buildWhatsAppShareUrl(phone: string | undefined, message?: string): string {

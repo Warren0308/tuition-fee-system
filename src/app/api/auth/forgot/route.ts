@@ -19,8 +19,10 @@ export async function POST(req: Request) {
   const html = `<p>请点击以下链接重置密码（30分钟内有效）：</p><p><a href="${link}">${link}</a></p>`;
   const res = await sendMail(email, "重置密码", html);
   if (!(res as any).ok) {
-    // 邮件未配置时，为方便开发返回 token
-    return NextResponse.json({ ok: true, token, warn: "SMTP 未配置，返回 token 供调试" });
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.json({ ok: true, token, warn: "SMTP 未配置，仅开发环境返回 token" });
+    }
+    return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ ok: true });
 }

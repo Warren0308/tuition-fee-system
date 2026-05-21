@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { TeacherEditor } from "./TeacherEditor";
 import { TeacherCoursesEditor } from "./TeacherCoursesEditor";
+import { DeleteTeacherButton } from "./DeleteTeacherButton";
 
 export default async function TeacherDetailPage({
   params,
@@ -76,23 +77,7 @@ export default async function TeacherDetailPage({
             ← 返回教师列表
           </Link>
           {isAdmin && (
-            <form
-              action={`/api/teachers/${teacher.id}`}
-              method="post"
-              onSubmit={(e) => {
-                if (!confirm(`确定要删除教师 ${teacher.name}？\n所有课程绑定将解除。`)) {
-                  e.preventDefault();
-                }
-              }}
-            >
-              <input type="hidden" name="_method" value="DELETE" />
-              <button
-                type="submit"
-                className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100"
-              >
-                🗑️ 删除教师
-              </button>
-            </form>
+            <DeleteTeacherButton teacherId={teacher.id} teacherName={teacher.name} />
           )}
         </div>
 
