@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>离线 - 优特学院</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .container {
+      background: white;
+      border-radius: 1.5rem;
+      padding: 2.5rem 2rem;
+      max-width: 28rem;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+    .icon {
+      font-size: 5rem;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      color: #1f2937;
+      font-size: 1.875rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      color: #6b7280;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .tips {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      text-align: left;
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+    .tips strong { color: #1f2937; }
+    .tips ul { margin-top: 0.5rem; padding-left: 1.25rem; }
+    .tips li { margin-bottom: 0.25rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>暂时离线</h1>
+    <p>当前无法连接到服务器。请检查网络后重试。</p>
+    <button class="btn" onclick="location.reload()">🔄 重新加载</button>
+    <div class="tips">
+      <strong>可能的原因：</strong>
+      <ul>
+        <li>手机网络信号弱或断开</li>
+        <li>WiFi 未连接</li>
+        <li>服务器维护中</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

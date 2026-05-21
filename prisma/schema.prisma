@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  ADMIN
+  RECIPIENT
+  TEACHER
+}
+
+model User {
+  id                  String               @id @default(uuid())
+  username            String               @unique
+  email               String?              @unique
+  phone               String?
+  passwordHash        String
+  avatarUrl           String?
+  isActive            Boolean              @default(true)
+  mustChangePassword  Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  roles               UserRole[]
+  teacher             Teacher?
+  passwordResetTokens PasswordResetToken[]
+}
+
+model Role {
+  id    Int        @id @default(autoincrement())
+  code  RoleCode   @unique
+  name  String
+  users UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model TermConfig {
+  id        Int      @id @default(autoincrement())
+  year      Int      @unique
+  term1Date DateTime
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  entityName  String
+  entityId    String?
+  action      String
+  before      String?
+  after       String?
+  createdAt   DateTime @default(now())
+}
+
+model Term {
+  id               Int                 @id @default(autoincrement())
+  year             Int
+  termIndex        Int
+  startDate        DateTime
+  endDate          DateTime
+  startEnrollments StudentEnrollment[] @relation("EnrollmentStartTerm")
+  endEnrollments   StudentEnrollment[] @relation("EnrollmentEndTerm")
+
+  @@unique([year, termIndex])
+}
+
+// 业务枚举
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum CourseGroup {
+  HOMEWORK // 功课班
+  TUITION // 补习班（细分学科）
+  WRITING // 写作班
+  SEC_ENGLISH // 中学英文
+  SEC_MALAY // 中学国文
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// 基础管理维度
+model Grade {
+  id         Int            @id @default(autoincrement())
+  name       String         @unique
+  orderIndex Int            @default(0)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  courseFees CourseFee[]
+  extraRates ExtraFeeRate[]
+  students   Student[]
+}
+
+model School {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  students  Student[]
+}
+
+model GuardianType {
+  id        Int               @id @default(autoincrement())
+  name      String            @unique
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  guardians StudentGuardian[]
+}
+
+// 课程与费用
+model Course {
+  id          Int                 @id @default(autoincrement())
+  code        String              @unique
+  name        String
+  group       CourseGroup
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  fees        CourseFee[]
+  enrollments StudentEnrollment[]
+  teachers    TeacherCourse[]
+}
+
+model CourseFee {
+  id            Int      @id @default(autoincrement())
+  courseId      Int
+  gradeId       Int
+  amountCents   Int // 以分为单位，避免小数精度问题
+  effectiveFrom DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  grade         Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, gradeId, effectiveFrom])
+}
+
+model ExtraFeeType {
+  id        Int            @id @default(autoincrement())
+  code      String         @unique
+  name      String
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  rates     ExtraFeeRate[]
+}
+
+model ExtraFeeRate {
+  id             Int          @id @default(autoincrement())
+  extraFeeTypeId Int
+  gradeId        Int
+  amountCents    Int
+  effectiveFrom  DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  type           ExtraFeeType @relation(fields: [extraFeeTypeId], references: [id], onDelete: Cascade)
+  grade          Grade        @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+
+  @@index([extraFeeTypeId, gradeId, effectiveFrom])
+}
+
+// 学生与监护人
+model Student {
+  id          String               @id @default(uuid())
+  fullName    String
+  gender      Gender?
+  dateOfBirth DateTime?
+  gradeId     Int
+  schoolId    Int?
+  className   String?
+  address     String?
+  address2    String?
+  city        String?
+  state       String?
+  postcode    String?
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  grade       Grade                @relation(fields: [gradeId], references: [id])
+  school      School?              @relation(fields: [schoolId], references: [id])
+  guardians   StudentGuardian[]
+  enrollments StudentEnrollment[]
+  payments    StudentTermPayment[]
+  changeLogs  StudentChangeLog[]
+}
+
+model StudentGuardian {
+  id             Int          @id @default(autoincrement())
+  studentId      String
+  name           String
+  relationTypeId Int
+  phone          String
+  isPrimary      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  relationType   GuardianType @relation(fields: [relationTypeId], references: [id])
+
+  @@index([studentId])
+}
+
+// 学生课程（带时间范围，表示某学期起生效，便于追溯历史）
+model StudentEnrollment {
+  id          Int      @id @default(autoincrement())
+  studentId   String
+  courseId    Int
+  startTermId Int // 含
+  endTermId   Int? // 含；为空代表仍在进行中
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course      Course   @relation(fields: [courseId], references: [id])
+  startTerm   Term     @relation("EnrollmentStartTerm", fields: [startTermId], references: [id])
+  endTerm     Term?    @relation("EnrollmentEndTerm", fields: [endTermId], references: [id])
+
+  @@index([studentId, courseId])
+}
+
+// 每学期收费单
+model StudentTermPayment {
+  id         String                   @id @default(uuid())
+  studentId  String
+  year       Int
+  termIndex  Int
+  totalCents Int                      @default(0)
+  paidAt     DateTime?
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  items      StudentTermPaymentItem[]
+  student    Student                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, year, termIndex])
+}
+
+model StudentTermPaymentItem {
+  id          Int                @id @default(autoincrement())
+  paymentId   String
+  itemType    String // COURSE / EXTRA / MANUAL
+  refId       Int?
+  description String
+  unitCents   Int // 课程原价或费用原价（以分为单位）
+  quantity    Int                @default(1)
+  fraction    Float              @default(1) // 支持半个学期=0.5，3周=0.75 等
+  finalCents  Int // 单项最终金额（含调整）
+  note        String?
+  createdAt   DateTime           @default(now())
+  payment     StudentTermPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+}
+
+// 学生资料修改历史（脱敏以外字段均可记录）
+model StudentChangeLog {
+  id        String   @id @default(uuid())
+  studentId String
+  action    String // CREATE / UPDATE_PROFILE / UPDATE_GUARDIAN / UPDATE_ADDRESS / ARCHIVE 等
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+}
+
+// 老师
+model Teacher {
+  id        String          @id @default(uuid())
+  userId    String?
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User?           @relation(fields: [userId], references: [id])
+  courses   TeacherCourse[]
+
+  @@unique([userId])
+}
+
+model TeacherCourse {
+  teacherId String
+  courseId  Int
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  course    Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, courseId])
+}
+
+// 通知（用于变更提醒、到账提醒等）
+model Notification {
+  id        String              @id @default(uuid())
+  channel   NotificationChannel
+  target    String
+  subject   String?
+  body      String
+  status    NotificationStatus  @default(PENDING)
+  error     String?
+  createdAt DateTime            @default(now())
+  sentAt    DateTime?
+}
+
+// 密码重置
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}

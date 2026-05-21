@@ -1,0 +1,14 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: Request, { params }: { params: { enrollmentId: string } }) {
+  const id = Number(params.enrollmentId);
+  const form = await req.formData();
+  const endTermId = Number(form.get("endTermId"));
+  if (!id || !endTermId) return NextResponse.json({ ok: false, error: "参数不完整" }, { status: 400 });
+  await prisma.studentEnrollment.update({ where: { id }, data: { endTermId } });
+  const record = await prisma.studentEnrollment.findUnique({ where: { id } });
+  return NextResponse.redirect(new URL(`/students/${record?.studentId}/enroll`, req.url));
+}
+
+
