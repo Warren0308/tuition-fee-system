@@ -10,9 +10,14 @@ export async function POST(req: Request, { params }: { params: { enrollmentId: s
   const form = await req.formData();
   const endTermId = Number(form.get("endTermId"));
   if (!id || !endTermId) return NextResponse.json({ ok: false, error: "参数不完整" }, { status: 400 });
-  await prisma.studentEnrollment.update({ where: { id }, data: { endTermId } });
-  const record = await prisma.studentEnrollment.findUnique({ where: { id } });
-  return NextResponse.redirect(new URL(`/students/${record?.studentId}/enroll`, req.url));
+  try {
+    await prisma.studentEnrollment.update({ where: { id }, data: { endTermId } });
+    const record = await prisma.studentEnrollment.findUnique({ where: { id } });
+    return NextResponse.redirect(new URL(`/students/${record?.studentId}/enroll`, req.url));
+  } catch (e) {
+    console.error("结束选课失败:", e);
+    return NextResponse.json({ ok: false, error: "操作失败" }, { status: 500 });
+  }
 }
 
 

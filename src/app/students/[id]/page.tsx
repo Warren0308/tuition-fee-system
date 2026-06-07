@@ -73,11 +73,14 @@ async function getData(id: string) {
 
   const forceCloseKeys = await getForceClosedTermKeys(student.id);
 
-  // 计算每个学期的待支付状态
   const termUnpaidMap = new Map<number, number>();
-  for (const term of terms) {
-    const summary = await calculateUnpaidForStudent(student.id, term.id, student.gradeId);
-    termUnpaidMap.set(term.id, summary.unpaidTotal);
+  try {
+    const unpaidResults = await Promise.all(
+      terms.map((term) => calculateUnpaidForStudent(student.id, term.id, student.gradeId))
+    );
+    terms.forEach((term, i) => termUnpaidMap.set(term.id, unpaidResults[i].unpaidTotal));
+  } catch {
+    // 查询失败时所有学期标记为0，不阻塞页面渲染
   }
 
   return { student, terms, guardianTypes, termUnpaidMap, allTagCourses, forceCloseKeys };

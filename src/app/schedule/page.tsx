@@ -20,15 +20,30 @@ export default async function SchedulePage({
   const isAdmin = roles?.includes("ADMIN");
   const isTeacher = roles?.includes("TEACHER");
 
-  const [terms, courses, currentTerm] = await Promise.all([
-    getAcademicYearTerms(),
-    prisma.course.findMany({
-      where: { isActive: true },
-      include: { dict: { include: { type: true } }, teachers: { include: { teacher: true } } },
-      orderBy: { name: "asc" },
-    }),
-    getCurrentOrLatestTerm(),
-  ]);
+  let terms, courses, currentTerm;
+  try {
+    [terms, courses, currentTerm] = await Promise.all([
+      getAcademicYearTerms(),
+      prisma.course.findMany({
+        where: { isActive: true },
+        include: { dict: { include: { type: true } }, teachers: { include: { teacher: true } } },
+        orderBy: { name: "asc" },
+      }),
+      getCurrentOrLatestTerm(),
+    ]);
+  } catch (e) {
+    console.error("SchedulePage data fetch error:", e);
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="card-modern p-8 text-center">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold mb-2">数据加载失败</h2>
+          <p className="text-gray-600 mb-4">请刷新页面重试</p>
+          <Link href="/dashboard" className="text-blue-600 hover:underline">← 返回工作台</Link>
+        </div>
+      </div>
+    );
+  }
 
   const billingTerms = terms;
 

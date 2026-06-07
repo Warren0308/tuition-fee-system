@@ -15,7 +15,8 @@ export default async function ProfilePage() {
       <div className="p-6">未登录。请先<Link className="text-blue-600" href="/login">登录</Link></div>
     );
   }
-  const userId = (session as any).userId as string;
+  const userId = (session as any).userId as string | undefined;
+  if (!userId) return <div className="p-6">会话异常，请重新<Link className="text-blue-600" href="/login">登录</Link></div>;
   const me = await getProfile(userId);
   if (!me) return <div className="p-6">用户不存在</div>;
   return (

@@ -37,33 +37,37 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ ok: false, error: "学生不存在" }, { status: 404 });
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 如果设为主要联系人，先清除其他主要标记
-    if (isPrimary) {
-      await tx.studentGuardian.updateMany({
-        where: { studentId, isPrimary: true },
-        data: { isPrimary: false },
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (isPrimary) {
+        await tx.studentGuardian.updateMany({
+          where: { studentId, isPrimary: true },
+          data: { isPrimary: false },
+        });
+      }
+
+      const created = await tx.studentGuardian.create({
+        data: { studentId, name, relationTypeId, phone, isPrimary },
       });
-    }
 
-    const created = await tx.studentGuardian.create({
-      data: { studentId, name, relationTypeId, phone, isPrimary },
-    });
-
-    await tx.studentChangeLog.create({
-      data: {
-        studentId,
-        action: "GUARDIAN_ADD",
-        after: {
-          guardianId: created.id,
-          name,
-          phone,
-          relationTypeId,
-          isPrimary,
+      await tx.studentChangeLog.create({
+        data: {
+          studentId,
+          action: "GUARDIAN_ADD",
+          after: {
+            guardianId: created.id,
+            name,
+            phone,
+            relationTypeId,
+            isPrimary,
+          },
         },
-      },
+      });
     });
-  });
 
-  return NextResponse.redirect(new URL(`/students/${studentId}`, req.url));
+    return NextResponse.redirect(new URL(`/students/${studentId}`, req.url));
+  } catch (e) {
+    console.error("添加监护人失败:", e);
+    return NextResponse.json({ ok: false, error: "添加失败" }, { status: 500 });
+  }
 }

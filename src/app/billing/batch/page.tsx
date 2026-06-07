@@ -36,12 +36,27 @@ export default async function BatchBillingPage() {
     );
   }
 
-  const [grades, schools, currentTerm, allTerms] = await Promise.all([
-    prisma.grade.findMany({ orderBy: { orderIndex: "asc" } }),
-    prisma.school.findMany({ orderBy: { name: "asc" } }),
-    getCurrentOrLatestTerm(),
-    getAcademicYearTerms(),
-  ]);
+  let grades, schools, currentTerm, allTerms;
+  try {
+    [grades, schools, currentTerm, allTerms] = await Promise.all([
+      prisma.grade.findMany({ orderBy: { orderIndex: "asc" } }),
+      prisma.school.findMany({ orderBy: { name: "asc" } }),
+      getCurrentOrLatestTerm(),
+      getAcademicYearTerms(),
+    ]);
+  } catch (e) {
+    console.error("BatchBillingPage data fetch error:", e);
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="card-modern p-8 text-center">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold mb-2">数据加载失败</h2>
+          <p className="text-gray-600 mb-4">请刷新页面重试</p>
+          <Link href="/dashboard" className="text-blue-600 hover:underline">← 返回工作台</Link>
+        </div>
+      </div>
+    );
+  }
 
   const initialTerm = currentTerm
     ? { year: currentTerm.year, termIndex: currentTerm.termIndex }

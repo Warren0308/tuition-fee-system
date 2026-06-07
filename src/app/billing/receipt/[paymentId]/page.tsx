@@ -26,7 +26,7 @@ async function getData(paymentId: string) {
     getAcademicYearTerms(),
   ]);
 
-  if (!payment) return null;
+  if (!payment || !payment.term) return null;
 
   const termLabels = academicTerms.map((t) => ({
     year: t.year,
@@ -34,14 +34,17 @@ async function getData(paymentId: string) {
     period: t.period,
   }));
 
-  // 使用统一函数计算未支付
-  const unpaidSummary = await calculateUnpaidForStudent(
-    payment.studentId,
-    payment.term.id,
-    payment.student.gradeId
-  );
+  let unpaidSummary;
+  try {
+    unpaidSummary = await calculateUnpaidForStudent(
+      payment.studentId,
+      payment.term.id,
+      payment.student.gradeId
+    );
+  } catch {
+    unpaidSummary = { unpaidCourses: [], unpaidExtraFees: [], unpaidTotal: 0 };
+  }
 
-  // 获取该学生在该学期的选课和子科目标签
   const enrollments = await prisma.studentEnrollment.findMany({
     where: {
       studentId: payment.studentId,
