@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { LedgerTable } from "@/app/billing/ledger/LedgerTable";
 
 interface TermInfo {
   period: number;
@@ -41,7 +42,8 @@ type Dimension =
   | "grades"
   | "courseByTerm"
   | "gradeCourse"
-  | "termGrade";
+  | "termGrade"
+  | "ledger";
 
 const DIMENSIONS: { id: Dimension; label: string; icon: string; desc: string }[] = [
   { id: "summary", label: "总览摘要", icon: "🌟", desc: "全年关键数字" },
@@ -53,6 +55,7 @@ const DIMENSIONS: { id: Dimension; label: string; icon: string; desc: string }[]
   { id: "courseByTerm", label: "课程×学期", icon: "🔢", desc: "每期各课程收入明细" },
   { id: "gradeCourse", label: "年级×课程", icon: "📊", desc: "每个年级各课程收入" },
   { id: "termGrade", label: "学期×年级", icon: "📅", desc: "每期各年级收入" },
+  { id: "ledger", label: "缴费台账", icon: "📋", desc: "逐人逐期缴费明细表" },
 ];
 
 function fmtRM(cents: number) {
@@ -577,6 +580,14 @@ export function StatsClient() {
               </table>
             </div>
           )}
+        </section>
+      )}
+
+      {/* ── 缴费台账 ── */}
+      {active.has("ledger") && (
+        <section className="card-modern p-5">
+          <SectionTitle icon="📋" title="缴费台账（逐人逐期）" />
+          <LedgerTable compact />
         </section>
       )}
 

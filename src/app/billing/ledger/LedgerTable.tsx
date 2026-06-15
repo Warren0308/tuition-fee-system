@@ -46,13 +46,14 @@ interface LedgerData {
 function fmt(cents: number) {
   return (cents / 100).toFixed(0);
 }
-
 function fmtRM(cents: number) {
   return `RM ${(cents / 100).toFixed(2)}`;
 }
 
-export function LedgerTable() {
+/** LedgerTable 可独立使用，也可嵌入其他页面 */
+export function LedgerTable({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<LedgerData | null>(null);
+  const [allData, setAllData] = useState<LedgerData | null>(null); // 保留全量数据（含 filters）
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filterType, setFilterType] = useState<"all" | "course" | "extraFee">("all");
@@ -76,25 +77,35 @@ export function LedgerTable() {
       if (extraFeeId) params.set("extraFee", extraFeeId);
       const res = await fetch(`/api/billing/ledger?${params}`);
       if (!res.ok) throw new Error("加载失败");
-      const json = await res.json();
+      const json: LedgerData = await res.json();
       setData(json);
+      // 保存 filters（不含筛选后的 students）
+      if (!allData || (!courseId && !extraFeeId)) {
+        setAllData(json);
+      }
     } catch (e: any) {
       setError(e.message || "加载失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [allData]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, []);  // eslint-disable-line
 
   const handleFilterChange = (type: "all" | "course" | "extraFee", id: string) => {
     setFilterType(type);
     setSelectedId(id);
+    setGradeFilter("all");
+    setSearchName("");
     if (type === "all") fetchData();
     else if (type === "course") fetchData(id, undefined);
     else fetchData(undefined, id);
+  };
+
+  const handleReset = () => {
+    handleFilterChange("all", "");
   };
 
   const grades = useMemo(() => {
@@ -106,9 +117,7 @@ export function LedgerTable() {
   const filtered = useMemo(() => {
     if (!data) return [];
     let list = data.students;
-    if (gradeFilter !== "all") {
-      list = list.filter((s) => s.grade === gradeFilter);
-    }
+    if (gradeFilter !== "all") list = list.filter((s) => s.grade === gradeFilter);
     if (searchName.trim()) {
       const q = searchName.trim().toLowerCase();
       list = list.filter((s) => s.name.toLowerCase().includes(q));
@@ -119,9 +128,7 @@ export function LedgerTable() {
   const termTotals = useMemo(() => {
     if (!data) return {};
     const totals: Record<number, { shouldPay: number; paid: number }> = {};
-    for (const term of data.terms) {
-      totals[term.period] = { shouldPay: 0, paid: 0 };
-    }
+    for (const term of data.terms) totals[term.period] = { shouldPay: 0, paid: 0 };
     for (const student of filtered) {
       for (const term of data.terms) {
         const td = student.terms[term.period];
@@ -134,114 +141,93 @@ export function LedgerTable() {
     return totals;
   }, [data, filtered]);
 
+  // 使用 allData 的 filters（有数据），当前筛选结果可能为空
+  const filters = allData?.filters || data?.filters;
+  const filterLabel =
+    filterType === "all"
+      ? "全部"
+      : filterType === "course"
+        ? filters?.courses.find((c) => String(c.id) === selectedId)?.name || "课程"
+        : filters?.extraFeeTypes.find((f) => String(f.id) === selectedId)?.name || "费用";
+
   if (loading) {
     return (
-      <div className="card-modern p-12 text-center">
-        <div className="animate-spin text-4xl mb-4">⏳</div>
-        <p className="text-gray-600">加载台账数据中...</p>
+      <div className={`${compact ? "py-8" : "card-modern p-12"} text-center`}>
+        <div className="animate-spin text-3xl mb-3">⏳</div>
+        <p className="text-gray-500 text-sm">加载台账数据中...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="card-modern p-12 text-center">
-        <div className="text-4xl mb-4">❌</div>
-        <p className="text-red-600">{error}</p>
-        <button
-          onClick={() => fetchData()}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
+      <div className={`${compact ? "py-8" : "card-modern p-12"} text-center`}>
+        <div className="text-3xl mb-3">❌</div>
+        <p className="text-red-600 text-sm">{error}</p>
+        <button onClick={() => fetchData()} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
           重试
         </button>
       </div>
     );
   }
 
-  if (!data || data.students.length === 0) {
-    return (
-      <div className="card-modern p-12 text-center">
-        <div className="text-4xl mb-4">📭</div>
-        <p className="text-gray-600">暂无缴费数据</p>
-      </div>
-    );
-  }
-
-  const filterLabel =
-    filterType === "all"
-      ? "全部"
-      : filterType === "course"
-        ? data.filters.courses.find((c) => String(c.id) === selectedId)?.name || ""
-        : data.filters.extraFeeTypes.find((f) => String(f.id) === selectedId)?.name || "";
+  const terms = data?.terms || [];
 
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="card-modern p-4">
+    <div className="space-y-3">
+      {/* 筛选栏 */}
+      <div className={compact ? "" : "card-modern p-4"}>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              查看项目
-            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">查看项目</label>
             <select
               value={filterType === "all" ? "all" : `${filterType}_${selectedId}`}
               onChange={(e) => {
                 const v = e.target.value;
-                if (v === "all") {
-                  handleFilterChange("all", "");
-                } else {
+                if (v === "all") handleFilterChange("all", "");
+                else {
                   const [type, id] = v.split("_", 2);
                   handleFilterChange(type as "course" | "extraFee", id);
                 }
               }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 max-w-[200px]"
             >
               <option value="all">全部课程 + 费用</option>
               <optgroup label="── 课程 ──">
-                {data.filters.courses.map((c) => (
-                  <option key={`c_${c.id}`} value={`course_${c.id}`}>
-                    {c.name}
-                  </option>
+                {(filters?.courses || []).map((c) => (
+                  <option key={`c_${c.id}`} value={`course_${c.id}`}>{c.name}</option>
                 ))}
               </optgroup>
               <optgroup label="── 额外费用 ──">
-                {data.filters.extraFeeTypes.map((f) => (
-                  <option key={`e_${f.id}`} value={`extraFee_${f.id}`}>
-                    {f.name}
-                  </option>
+                {(filters?.extraFeeTypes || []).map((f) => (
+                  <option key={`e_${f.id}`} value={`extraFee_${f.id}`}>{f.name}</option>
                 ))}
               </optgroup>
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              年级
-            </label>
-            <select
-              value={gradeFilter}
-              onChange={(e) => setGradeFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">全部年级</option>
-              {grades.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
+          {grades.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">年级</label>
+              <select
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">全部年级</option>
+                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              搜索
-            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">搜索</label>
             <input
               type="text"
               placeholder="学生姓名..."
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-36"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-32"
             />
           </div>
 
@@ -253,254 +239,208 @@ export function LedgerTable() {
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 px-1">
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-green-100 border border-green-300 inline-block" />
-          全额付清
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-300 inline-block" />
-          部分缴费
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block" />
-          未缴
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-gray-50 border border-gray-200 inline-block" />
-          无需缴费
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300 inline-block" />
-          强制清算
-        </span>
-        <span className="text-gray-400 ml-2">鼠标悬停单元格可查看明细</span>
+      {/* 图例 */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 px-1">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-100 border border-green-300 inline-block" />已付清</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-300 inline-block" />部分缴费</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block" />未缴</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-100 border border-blue-300 inline-block" /><span className="text-blue-600 font-medium">清</span> 强制清算（有已付）</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-50 border border-blue-200 inline-block" />强制清算（无付款）</span>
+        <span className="text-gray-400 hidden md:inline">悬停查看明细</span>
       </div>
 
-      {/* Table */}
-      <div
-        className="card-modern overflow-hidden relative"
-        onMouseLeave={() => setTooltip(null)}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="sticky left-0 z-20 bg-gray-50 border-b border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 w-10">
-                  #
-                </th>
-                <th className="sticky left-10 z-20 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 min-w-[100px]">
-                  学生
-                </th>
-                <th className="sticky left-[140px] z-20 bg-gray-50 border-b border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 min-w-[60px]">
-                  年级
-                </th>
-                {data.terms.map((t) => (
-                  <th
-                    key={t.period}
-                    className="border-b border-r border-gray-200 px-1 py-2 text-center font-semibold text-gray-700 min-w-[72px] whitespace-nowrap"
-                  >
-                    第{t.period}期
-                  </th>
-                ))}
-                <th className="border-b border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[70px] bg-indigo-50">
-                  应缴
-                </th>
-                <th className="border-b border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[70px] bg-indigo-50">
-                  实缴
-                </th>
-                <th className="border-b border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[70px] bg-indigo-50">
-                  差额
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((student, idx) => {
-                let totalShould = 0;
-                let totalPaid = 0;
-                for (const term of data.terms) {
-                  const td = student.terms[term.period];
-                  if (td && !td.forceClosed) {
-                    totalShould += td.shouldPay;
-                    totalPaid += td.paid;
-                  }
-                }
-                const diff = totalPaid - totalShould;
+      {/* 无数据提示 */}
+      {!loading && filtered.length === 0 && (
+        <div className={`${compact ? "py-8" : "card-modern p-10"} text-center`}>
+          <div className="text-4xl mb-3">📭</div>
+          <p className="text-gray-500 text-sm mb-1">
+            {filterType !== "all"
+              ? `「${filterLabel}」暂无缴费记录，可能尚未给学生设置此课程`
+              : "暂无数据"}
+          </p>
+          {filterType !== "all" && (
+            <button
+              onClick={handleReset}
+              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+            >
+              ← 返回显示全部
+            </button>
+          )}
+        </div>
+      )}
 
-                return (
-                  <tr
-                    key={student.id}
-                    className="hover:bg-blue-50/30 transition-colors"
-                  >
-                    <td className="sticky left-0 z-10 bg-white border-b border-r border-gray-100 px-2 py-1 text-gray-400 text-xs">
-                      {idx + 1}
-                    </td>
-                    <td className="sticky left-10 z-10 bg-white border-b border-r border-gray-100 px-3 py-1 font-medium text-xs">
-                      <Link
-                        href={`/students/${student.id}`}
-                        className="text-blue-600 hover:underline whitespace-nowrap"
-                      >
-                        {student.name}
-                      </Link>
-                    </td>
-                    <td className="sticky left-[140px] z-10 bg-white border-b border-r border-gray-100 px-2 py-1 text-gray-500 text-xs whitespace-nowrap">
-                      {student.grade}
-                    </td>
-                    {data.terms.map((term) => {
-                      const td = student.terms[term.period];
-                      return (
-                        <td
-                          key={term.period}
-                          className={`border-b border-r border-gray-100 px-1 py-1 text-center text-xs cursor-default ${cellBg(td)}`}
-                          onMouseEnter={(e) => {
-                            if (!td) return;
-                            const rect = (e.target as HTMLElement).getBoundingClientRect();
-                            setTooltip({
-                              x: rect.left + rect.width / 2,
-                              y: rect.bottom + 4,
-                              content: td,
-                              period: term.period,
-                              studentName: student.name,
-                            });
-                          }}
-                          onMouseLeave={() => setTooltip(null)}
-                        >
-                          {renderCell(td)}
-                        </td>
-                      );
-                    })}
-                    <td className="border-b border-gray-100 px-2 py-1 text-center text-xs font-medium bg-indigo-50/40">
-                      {fmt(totalShould)}
-                    </td>
-                    <td className="border-b border-gray-100 px-2 py-1 text-center text-xs font-medium bg-indigo-50/40">
-                      {fmt(totalPaid)}
-                    </td>
-                    <td
-                      className={`border-b border-gray-100 px-2 py-1 text-center text-xs font-bold bg-indigo-50/40 ${
-                        diff < 0 ? "text-red-600" : diff > 0 ? "text-green-600" : "text-gray-400"
-                      }`}
-                    >
-                      {diff === 0 ? "0" : diff > 0 ? `+${fmt(diff)}` : fmt(diff)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="bg-gray-50 font-semibold text-xs">
-                <td
-                  className="sticky left-0 z-10 bg-gray-50 border-t-2 border-gray-300 px-2 py-2"
-                  colSpan={3}
-                >
-                  合计 ({filtered.length}人)
-                </td>
-                {data.terms.map((term) => {
-                  const t = termTotals[term.period];
+      {/* 表格 */}
+      {filtered.length > 0 && (
+        <div
+          className={compact ? "overflow-hidden rounded-xl border border-gray-200" : "card-modern overflow-hidden"}
+          onMouseLeave={() => setTooltip(null)}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="sticky left-0 z-20 bg-gray-50 border-b border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 w-8">#</th>
+                  <th className="sticky left-8 z-20 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 min-w-[90px]">学生</th>
+                  <th className="sticky left-[122px] z-20 bg-gray-50 border-b border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 min-w-[58px]">年级</th>
+                  {terms.map((t) => (
+                    <th key={t.period} className="border-b border-r border-gray-200 px-1 py-2 text-center font-semibold text-gray-700 min-w-[68px] whitespace-nowrap text-xs">
+                      第{t.period}期
+                    </th>
+                  ))}
+                  <th className="border-b border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] bg-indigo-50 text-xs">应缴</th>
+                  <th className="border-b border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] bg-indigo-50 text-xs">实缴</th>
+                  <th className="border-b border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] bg-indigo-50 text-xs">差额</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((student, idx) => {
+                  let totalShould = 0, totalPaid = 0;
+                  for (const term of terms) {
+                    const td = student.terms[term.period];
+                    if (td && !td.forceClosed) {
+                      totalShould += td.shouldPay;
+                      totalPaid += td.paid;
+                    }
+                  }
+                  const diff = totalPaid - totalShould;
                   return (
-                    <td
-                      key={term.period}
-                      className="border-t-2 border-gray-300 px-1 py-2 text-center"
-                    >
-                      <div className="text-green-700">{t ? fmt(t.paid) : "-"}</div>
-                      <div className="text-gray-400 text-[10px]">
-                        /{t ? fmt(t.shouldPay) : "-"}
-                      </div>
-                    </td>
+                    <tr key={student.id} className="hover:bg-blue-50/20 transition-colors">
+                      <td className="sticky left-0 z-10 bg-white border-b border-r border-gray-100 px-2 py-1.5 text-gray-400 text-xs">{idx + 1}</td>
+                      <td className="sticky left-8 z-10 bg-white border-b border-r border-gray-100 px-3 py-1.5 text-xs font-medium">
+                        <Link href={`/students/${student.id}`} className="text-blue-600 hover:underline whitespace-nowrap">
+                          {student.name}
+                        </Link>
+                      </td>
+                      <td className="sticky left-[122px] z-10 bg-white border-b border-r border-gray-100 px-2 py-1.5 text-gray-500 text-[11px] whitespace-nowrap">
+                        {student.grade}
+                      </td>
+                      {terms.map((term) => {
+                        const td = student.terms[term.period];
+                        return (
+                          <td
+                            key={term.period}
+                            className={`border-b border-r border-gray-100 px-1 py-1.5 text-center text-xs cursor-default ${cellBg(td)}`}
+                            onMouseEnter={(e) => {
+                              if (!td) return;
+                              const rect = (e.target as HTMLElement).getBoundingClientRect();
+                              setTooltip({ x: rect.left + rect.width / 2, y: rect.bottom + 4, content: td, period: term.period, studentName: student.name });
+                            }}
+                            onMouseLeave={() => setTooltip(null)}
+                          >
+                            {renderCell(td)}
+                          </td>
+                        );
+                      })}
+                      <td className="border-b border-gray-100 px-2 py-1.5 text-center text-xs font-medium bg-indigo-50/40">{fmt(totalShould)}</td>
+                      <td className="border-b border-gray-100 px-2 py-1.5 text-center text-xs font-medium bg-indigo-50/40">{fmt(totalPaid)}</td>
+                      <td className={`border-b border-gray-100 px-2 py-1.5 text-center text-xs font-bold bg-indigo-50/40 ${diff < 0 ? "text-red-600" : diff > 0 ? "text-green-600" : "text-gray-400"}`}>
+                        {diff === 0 ? "0" : diff > 0 ? `+${fmt(diff)}` : fmt(diff)}
+                      </td>
+                    </tr>
                   );
                 })}
-                {(() => {
-                  let gs = 0, gp = 0;
-                  for (const t of Object.values(termTotals)) {
-                    gs += t.shouldPay;
-                    gp += t.paid;
-                  }
-                  const gd = gp - gs;
-                  return (
-                    <>
-                      <td className="border-t-2 border-gray-300 px-2 py-2 text-center bg-indigo-50">
-                        {fmt(gs)}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 font-semibold text-xs">
+                  <td className="sticky left-0 z-10 bg-gray-50 border-t-2 border-gray-300 px-2 py-2" colSpan={3}>
+                    合计 ({filtered.length}人)
+                  </td>
+                  {terms.map((term) => {
+                    const t = termTotals[term.period];
+                    return (
+                      <td key={term.period} className="border-t-2 border-gray-300 px-1 py-2 text-center text-xs">
+                        <div className="text-green-700">{t ? fmt(t.paid) : "-"}</div>
+                        <div className="text-gray-400 text-[10px]">/{t ? fmt(t.shouldPay) : "-"}</div>
                       </td>
-                      <td className="border-t-2 border-gray-300 px-2 py-2 text-center bg-indigo-50">
-                        {fmt(gp)}
-                      </td>
-                      <td
-                        className={`border-t-2 border-gray-300 px-2 py-2 text-center bg-indigo-50 font-bold ${
-                          gd < 0 ? "text-red-600" : gd > 0 ? "text-green-600" : "text-gray-400"
-                        }`}
-                      >
-                        {gd === 0 ? "0" : gd > 0 ? `+${fmt(gd)}` : fmt(gd)}
-                      </td>
-                    </>
-                  );
-                })()}
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        {/* Floating tooltip */}
-        {tooltip && (
-          <div
-            className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-xs max-w-xs pointer-events-none"
-            style={{
-              left: Math.min(tooltip.x, window.innerWidth - 260),
-              top: tooltip.y,
-            }}
-          >
-            <div className="font-semibold text-gray-800 mb-1.5 border-b pb-1">
-              {tooltip.studentName} · 第{tooltip.period}期
-              {tooltip.content.forceClosed && (
-                <span className="ml-2 text-blue-600">[已强制清算]</span>
-              )}
-            </div>
-            {tooltip.content.items.map((item, i) => (
-              <div key={i} className="flex justify-between gap-4 py-0.5">
-                <span className="text-gray-600">{item.name}</span>
-                <span>
-                  {item.paid ? (
-                    <span className="text-green-600">
-                      {fmtRM(item.paidAmount)}
-                      {item.paidAmount !== item.amount && (
-                        <span className="text-gray-400 ml-1 line-through">{fmtRM(item.amount)}</span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="text-red-500">未付 {fmtRM(item.amount)}</span>
-                  )}
-                </span>
-              </div>
-            ))}
-            <div className="border-t mt-1.5 pt-1.5 flex justify-between font-medium">
-              <span>应缴</span>
-              <span>{fmtRM(tooltip.content.shouldPay)}</span>
-            </div>
-            <div className="flex justify-between font-medium">
-              <span>实缴</span>
-              <span className={tooltip.content.paid >= tooltip.content.shouldPay ? "text-green-600" : "text-red-600"}>
-                {fmtRM(tooltip.content.paid)}
-              </span>
-            </div>
+                    );
+                  })}
+                  {(() => {
+                    let gs = 0, gp = 0;
+                    for (const t of Object.values(termTotals)) { gs += t.shouldPay; gp += t.paid; }
+                    const gd = gp - gs;
+                    return (
+                      <>
+                        <td className="border-t-2 border-gray-300 px-2 py-2 text-center text-xs bg-indigo-50">{fmt(gs)}</td>
+                        <td className="border-t-2 border-gray-300 px-2 py-2 text-center text-xs bg-indigo-50">{fmt(gp)}</td>
+                        <td className={`border-t-2 border-gray-300 px-2 py-2 text-center text-xs bg-indigo-50 font-bold ${gd < 0 ? "text-red-600" : gd > 0 ? "text-green-600" : "text-gray-400"}`}>
+                          {gd === 0 ? "0" : gd > 0 ? `+${fmt(gd)}` : fmt(gd)}
+                        </td>
+                      </>
+                    );
+                  })()}
+                </tr>
+              </tfoot>
+            </table>
           </div>
-        )}
-      </div>
+
+          {/* 悬浮 tooltip */}
+          {tooltip && (
+            <div
+              className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 text-xs max-w-[260px] pointer-events-none"
+              style={{ left: Math.min(tooltip.x, (typeof window !== "undefined" ? window.innerWidth : 400) - 270), top: tooltip.y }}
+            >
+              <div className="font-semibold text-gray-800 mb-1.5 border-b pb-1">
+                {tooltip.studentName} · 第{tooltip.period}期
+                {tooltip.content.forceClosed && <span className="ml-1 text-blue-500">[强制清算]</span>}
+              </div>
+              {tooltip.content.items.map((item, i) => (
+                <div key={i} className="flex justify-between gap-3 py-0.5">
+                  <span className="text-gray-600">{item.name}</span>
+                  <span>
+                    {item.paid ? (
+                      <span className="text-green-600">{fmtRM(item.paidAmount)}</span>
+                    ) : (
+                      <span className="text-red-500">未付 {fmtRM(item.amount)}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+              <div className="border-t mt-1.5 pt-1.5 space-y-0.5">
+                <div className="flex justify-between"><span>应缴</span><span>{fmtRM(tooltip.content.shouldPay)}</span></div>
+                <div className="flex justify-between font-semibold">
+                  <span>实缴</span>
+                  <span className={tooltip.content.paid >= tooltip.content.shouldPay ? "text-green-600" : "text-red-600"}>
+                    {fmtRM(tooltip.content.paid)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 function cellBg(td: TermData | undefined): string {
-  if (!td) return "bg-gray-50/30";
-  if (td.forceClosed) return "bg-blue-50";
+  if (!td) return "bg-gray-50/20";
+  if (td.forceClosed) {
+    // 强制清算 + 有付款 → 绿底（表示已收款且结案）
+    return td.paid > 0 ? "bg-green-50" : "bg-blue-50";
+  }
   if (td.shouldPay > 0 && td.paid >= td.shouldPay) return "bg-green-50";
   if (td.paid > 0 && td.paid < td.shouldPay) return "bg-yellow-50";
   if (td.shouldPay > 0 && td.paid === 0) return "bg-red-50";
-  return "bg-gray-50/30";
+  return "bg-gray-50/20";
 }
 
 function renderCell(td: TermData | undefined) {
-  if (!td) return <span className="text-gray-300">-</span>;
-  if (td.forceClosed)
-    return <span className="text-blue-500 font-medium">清算</span>;
+  if (!td) return <span className="text-gray-200">-</span>;
+
+  if (td.forceClosed) {
+    if (td.paid > 0) {
+      // 有实际付款 → 显示金额 + 小"清"标
+      return (
+        <span className="text-green-700 font-medium">
+          {fmt(td.paid)}
+          <span className="text-[9px] text-blue-500 ml-0.5 align-super">清</span>
+        </span>
+      );
+    }
+    // 无付款 → 仅显示清算
+    return <span className="text-blue-400 text-[10px] font-medium">清算</span>;
+  }
+
   if (td.paid >= td.shouldPay && td.shouldPay > 0)
     return <span className="text-green-700 font-medium">{fmt(td.paid)}</span>;
   if (td.paid > 0 && td.paid < td.shouldPay)
@@ -512,5 +452,5 @@ function renderCell(td: TermData | undefined) {
     );
   if (td.shouldPay > 0)
     return <span className="text-red-600 font-medium">{fmt(td.shouldPay)}</span>;
-  return <span className="text-gray-300">-</span>;
+  return <span className="text-gray-200">-</span>;
 }
