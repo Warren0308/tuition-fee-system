@@ -207,8 +207,10 @@ export async function calculateUnpaidForStudents(
   const terms = await getAcademicYearTerms();
   const feeTermId = resolveFeeLookupTermId(termId, terms);
 
-  // 一次性查询所有需要的数据
-  const [students, enrollments, extraFees, payments] = await Promise.all([
+  const billingTerm = terms.find((t) => t.id === termId);
+
+  // 一次性查询所有需要的数据（含 force-close 记录）
+  const [students, enrollments, extraFees, payments, forceCloses] = await Promise.all([
     prisma.student.findMany({
       where: { id: { in: studentIds } },
       select: { id: true, gradeId: true },
@@ -231,7 +233,19 @@ export async function calculateUnpaidForStudents(
       where: { studentId: { in: studentIds }, term: { id: termId } },
       include: { items: true },
     }),
+    billingTerm
+      ? prisma.studentTermForceClose.findMany({
+          where: {
+            studentId: { in: studentIds },
+            year: billingTerm.year,
+            termIndex: billingTerm.termIndex,
+          },
+          select: { studentId: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const forceClosedStudentIds = new Set(forceCloses.map((fc) => fc.studentId));
 
   // 索引
   const gradeByStudent = new Map(students.map((s) => [s.id, s.gradeId]));
@@ -252,6 +266,16 @@ export async function calculateUnpaidForStudents(
   }
 
   for (const sid of studentIds) {
+    if (forceClosedStudentIds.has(sid)) {
+      result.set(sid, {
+        unpaidCourses: [],
+        unpaidExtraFees: [],
+        unpaidTotal: 0,
+        hasAnyEnrollment: false,
+      });
+      continue;
+    }
+
     const gradeId = gradeByStudent.get(sid);
     if (gradeId === undefined) continue;
 

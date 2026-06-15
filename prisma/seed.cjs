@@ -54,6 +54,9 @@ async function main() {
     { code: "WRITING", name: "写作班", group: "WRITING" },
     { code: "SEC_EN", name: "中学英文", group: "SEC_ENGLISH" },
     { code: "SEC_BM", name: "中学国文", group: "SEC_MALAY" },
+    { code: "SEC_MATH", name: "中学数学", group: "SEC_MATH" },
+    { code: "SEC_HIST", name: "中学历史", group: "SEC_HISTORY" },
+    { code: "SEC_EN_WRITING", name: "中学英文作文", group: "SEC_EN_WRITING" },
   ];
   for (const c of courses) {
     await prisma.course.upsert({

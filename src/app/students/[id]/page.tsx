@@ -16,12 +16,13 @@ import {
   filterBillingCyclePayments,
 } from "@/lib/term-utils";
 
-// 主课程 + 其细分子科目的映射 (按 code)
-// 补习班：小学细分 + 中学国文/英文
+import { SECONDARY_SUBJECT_CODES } from "@/lib/secondary-courses";
+
+// 补习班：小学细分 + 中学科目
 const SUBJECT_TAG_CONFIG: Record<string, string[]> = {
   TUITION_CLASS: [
     "TUITION_CN", "TUITION_BM", "TUITION_EN", "TUITION_MATH", "TUITION_SCI",
-    "SEC_BM", "SEC_EN",
+    ...SECONDARY_SUBJECT_CODES,
   ],
 };
 

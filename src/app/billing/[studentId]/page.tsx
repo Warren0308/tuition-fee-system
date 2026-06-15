@@ -11,6 +11,7 @@ import {
   resolveBillingTerm,
 } from "@/lib/billing-utils";
 import { resolveFeeLookupTermId } from "@/lib/fee-baseline";
+import { COURSE_GROUP_COLORS, COURSE_GROUP_LABELS } from "@/lib/secondary-courses";
 
 async function getData(studentId: string, year?: number, termIndex?: number) {
   const academicTerms = await getAcademicYearTerms();
@@ -196,21 +197,8 @@ export default async function BillingForStudentPage({ params, searchParams }: {
     });
   };
 
-  const courseGroupNames: Record<string, string> = {
-    HOMEWORK: '功课班',
-    TUITION: '补习班',
-    WRITING: '写作班',
-    SEC_ENGLISH: '中学英文',
-    SEC_MALAY: '中学国文'
-  };
-
-  const courseGroupColors: Record<string, string> = {
-    HOMEWORK: 'bg-blue-100 text-blue-800 border-blue-200',
-    TUITION: 'bg-green-100 text-green-800 border-green-200',
-    WRITING: 'bg-purple-100 text-purple-800 border-purple-200',
-    SEC_ENGLISH: 'bg-orange-100 text-orange-800 border-orange-200',
-    SEC_MALAY: 'bg-pink-100 text-pink-800 border-pink-200'
-  };
+  const courseGroupNames = COURSE_GROUP_LABELS;
+  const courseGroupColors = COURSE_GROUP_COLORS;
 
   return (
     <div className="min-h-screen p-6 space-y-8">

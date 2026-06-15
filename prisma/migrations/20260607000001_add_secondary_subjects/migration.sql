@@ -1,0 +1,4 @@
+-- 新增中学科目：数学、历史、英文作文
+ALTER TYPE "CourseGroup" ADD VALUE 'SEC_MATH';
+ALTER TYPE "CourseGroup" ADD VALUE 'SEC_HISTORY';
+ALTER TYPE "CourseGroup" ADD VALUE 'SEC_EN_WRITING';

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/api-auth';
+import { resolveSecondaryCourseGroup } from '@/lib/secondary-courses';
 
 export async function POST(request: Request) {
   try {
@@ -82,9 +83,9 @@ export async function POST(request: Request) {
           });
 
           // 确定课程组
-          let courseGroup: any = 'TUITION'; // 默认为补习班
+          let courseGroup: any = 'TUITION';
           if (dictCourse.type.name === '中学课程') {
-            courseGroup = dictCourse.name === '国文' ? 'SEC_MALAY' : 'SEC_ENGLISH';
+            courseGroup = resolveSecondaryCourseGroup(dictCourse.name, dictCourse.type.name);
           } else if (dictCourse.type.name === '独立课程') {
             courseGroup = dictCourse.name === '功课班' ? 'HOMEWORK' : 'WRITING';
           }

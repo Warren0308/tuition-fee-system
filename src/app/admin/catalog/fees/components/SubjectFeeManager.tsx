@@ -13,7 +13,7 @@ interface Course {
   id: number;
   code: string;
   name: string;
-  group: 'HOMEWORK' | 'TUITION' | 'WRITING' | 'SEC_ENGLISH' | 'SEC_MALAY';
+  group: 'HOMEWORK' | 'TUITION' | 'WRITING' | 'SEC_ENGLISH' | 'SEC_MALAY' | 'SEC_MATH' | 'SEC_HISTORY' | 'SEC_EN_WRITING';
   isActive: boolean;
 }
 

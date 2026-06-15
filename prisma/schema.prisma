@@ -412,6 +412,9 @@ enum CourseGroup {
   WRITING
   SEC_ENGLISH
   SEC_MALAY
+  SEC_MATH
+  SEC_HISTORY
+  SEC_EN_WRITING
 }
 
 enum NotificationChannel {

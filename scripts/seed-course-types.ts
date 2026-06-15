@@ -20,7 +20,10 @@ async function main() {
         orderIndex: 2,
         courses: [
           "中学国文",
-          "中学英文"
+          "中学英文",
+          "中学数学",
+          "中学历史",
+          "中学英文作文",
         ]
       },
       {

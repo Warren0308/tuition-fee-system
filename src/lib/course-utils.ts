@@ -21,6 +21,9 @@ export function getCourseGroupType(group: string): string {
       return '小学课程';
     case 'SEC_ENGLISH':
     case 'SEC_MALAY':
+    case 'SEC_MATH':
+    case 'SEC_HISTORY':
+    case 'SEC_EN_WRITING':
       return '中学课程';
     case 'HOMEWORK':
     case 'WRITING':
