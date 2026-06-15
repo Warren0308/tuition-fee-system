@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="page-background text-gray-900 overflow-x-hidden">
         <SessionWrapper>
           <Navigation />
-          <main className="relative z-10 pt-2 md:pt-4">{children}</main>
+          <main className="relative z-10 pt-2 md:pt-4 pb-20 md:pb-4">{children}</main>
           <PWAInstallPrompt />
         </SessionWrapper>
         <ServiceWorkerRegister />

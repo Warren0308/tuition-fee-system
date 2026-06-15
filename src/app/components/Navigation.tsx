@@ -140,6 +140,8 @@ export default function Navigation() {
               <MobileLink href="/schedule" icon="📅" label="课表" pathname={pathname} />
               <MobileLink href="/billing/batch" icon="⚡" label="批量结算" pathname={pathname} />
               <MobileLink href="/billing/unpaid" icon="⏰" label="待支付账单" pathname={pathname} />
+              <MobileLink href="/billing/ledger" icon="📋" label="缴费台账" pathname={pathname} />
+              <MobileLink href="/stats" icon="📊" label="统计分析" pathname={pathname} />
 
               {isAdmin && (
                 <>
@@ -180,8 +182,12 @@ export default function Navigation() {
         </div>
       </div>
 
-      {/* Bottom nav placeholder spacer */}
-      <div className="md:hidden h-14" aria-hidden="true" />
+      {/* Bottom nav placeholder spacer — matches bar height + safe-area */}
+      <div
+        className="md:hidden"
+        style={{ height: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}
+        aria-hidden="true"
+      />
     </>
   );
 }
