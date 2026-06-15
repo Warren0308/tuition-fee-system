@@ -146,10 +146,41 @@ export async function GET() {
       };
     }
 
-    // ── 7. 总结摘要 ──────────────────────────────────────────
+    // ── 7. 年级 × 课程 交叉收入 ──────────────────────────────
+    const gradeCourseMatrix: Record<string, Record<string, number>> = {};
+    for (const p of allPayments) {
+      const gradeName = p.student.grade?.name || "未分配";
+      for (const item of p.items) {
+        if (item.itemType !== "COURSE") continue;
+        if (!gradeCourseMatrix[gradeName]) gradeCourseMatrix[gradeName] = {};
+        gradeCourseMatrix[gradeName][item.description] =
+          (gradeCourseMatrix[gradeName][item.description] || 0) + item.finalCents;
+      }
+    }
+
+    // ── 8. 学期 × 年级 交叉收入 ──────────────────────────────
+    const termGradeMatrix: Record<number, Record<string, number>> = {};
+    for (const t of terms) termGradeMatrix[t.period] = {};
+    for (const p of allPayments) {
+      const period = periodByCoords.get(`${p.year}_${p.termIndex}`);
+      if (!period) continue;
+      const gradeName = p.student.grade?.name || "未分配";
+      termGradeMatrix[period][gradeName] =
+        (termGradeMatrix[period][gradeName] || 0) + p.totalCents;
+    }
+
+    // ── 9. 总结摘要 ──────────────────────────────────────────
     const totalRevenue = allPayments.reduce((s, p) => s + p.totalCents, 0);
     const totalPayments = allPayments.length;
     const activeStudents = await prisma.student.count({ where: { isActive: true } });
+
+    // 所有课程名（有缴费记录）
+    const allCourseNames = [...new Set(allPayments.flatMap((p) =>
+      p.items.filter((i) => i.itemType === "COURSE").map((i) => i.description)
+    ))].sort();
+
+    // 所有年级名（有缴费记录的学生）
+    const allGradeNames = allGrades.map((g) => g.name);
 
     return NextResponse.json({
       terms: terms.map((t) => ({ period: t.period, year: t.year, termIndex: t.termIndex })),
@@ -159,6 +190,10 @@ export async function GET() {
       extraFees,
       gradeDistrib,
       termPaymentRate,
+      gradeCourseMatrix,
+      termGradeMatrix,
+      allCourseNames,
+      allGradeNames,
       summary: {
         totalRevenue,
         totalPayments,

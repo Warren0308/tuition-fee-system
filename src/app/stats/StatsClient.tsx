@@ -20,6 +20,10 @@ interface StatsData {
     number,
     { shouldPayStudents: number; paidStudents: number; paymentRate: number }
   >;
+  gradeCourseMatrix: Record<string, Record<string, number>>;
+  termGradeMatrix: Record<number, Record<string, number>>;
+  allCourseNames: string[];
+  allGradeNames: string[];
   summary: {
     totalRevenue: number;
     totalPayments: number;
@@ -35,16 +39,20 @@ type Dimension =
   | "courses"
   | "extraFees"
   | "grades"
-  | "courseByTerm";
+  | "courseByTerm"
+  | "gradeCourse"
+  | "termGrade";
 
 const DIMENSIONS: { id: Dimension; label: string; icon: string; desc: string }[] = [
   { id: "summary", label: "总览摘要", icon: "🌟", desc: "全年关键数字" },
   { id: "termRevenue", label: "各期收入", icon: "📈", desc: "每学期收入趋势" },
   { id: "paymentRate", label: "缴费率", icon: "✅", desc: "各期学生缴费完成率" },
-  { id: "courses", label: "课程分布", icon: "📚", desc: "各课程收入与人次" },
+  { id: "courses", label: "课程排行", icon: "📚", desc: "各课程收入与人次" },
   { id: "extraFees", label: "额外费用", icon: "🍽️", desc: "膳食/交通等费用统计" },
-  { id: "grades", label: "年级分布", icon: "👥", desc: "在读学生年级构成" },
+  { id: "grades", label: "年级人数", icon: "👥", desc: "在读学生年级构成" },
   { id: "courseByTerm", label: "课程×学期", icon: "🔢", desc: "每期各课程收入明细" },
+  { id: "gradeCourse", label: "年级×课程", icon: "📊", desc: "每个年级各课程收入" },
+  { id: "termGrade", label: "学期×年级", icon: "📅", desc: "每期各年级收入" },
 ];
 
 function fmtRM(cents: number) {
@@ -59,7 +67,7 @@ export function StatsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [active, setActive] = useState<Set<Dimension>>(
-    new Set(["summary", "termRevenue", "paymentRate", "courses"])
+    new Set(["summary", "termRevenue", "paymentRate", "courses"] as Dimension[])
   );
 
   useEffect(() => {
@@ -420,6 +428,139 @@ export function StatsClient() {
                               key={t.period}
                               className={`border border-gray-100 px-2 py-1.5 text-center ${
                                 v > 0 ? "text-blue-700 font-medium" : "text-gray-300"
+                              }`}
+                            >
+                              {v > 0 ? fmtRM(v) : "-"}
+                            </td>
+                          );
+                        })}
+                        <td className="border border-gray-100 px-2 py-1.5 text-center font-bold text-gray-800 bg-indigo-50/50">
+                          {fmtRM(total)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── 年级×课程 ── */}
+      {active.has("gradeCourse") && (
+        <section className="card-modern p-5">
+          <SectionTitle icon="📊" title="年级 × 课程 收入交叉" />
+          {Object.keys(data.gradeCourseMatrix).length === 0 ? (
+            <Empty />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="sticky left-0 bg-gray-50 border border-gray-200 px-2 py-1.5 text-left font-semibold text-gray-700 min-w-[70px]">
+                      年级
+                    </th>
+                    {data.allCourseNames.map((c) => (
+                      <th
+                        key={c}
+                        className="border border-gray-200 px-2 py-1.5 text-center font-semibold text-gray-700 min-w-[72px] whitespace-nowrap"
+                      >
+                        {c}
+                      </th>
+                    ))}
+                    <th className="border border-gray-200 px-2 py-1.5 text-center font-semibold bg-indigo-50 min-w-[72px]">
+                      合计
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.allGradeNames
+                    .filter((g) => data.gradeCourseMatrix[g])
+                    .map((grade) => {
+                      const row = data.gradeCourseMatrix[grade] || {};
+                      const total = Object.values(row).reduce((s, v) => s + v, 0);
+                      return (
+                        <tr key={grade} className="hover:bg-gray-50">
+                          <td className="sticky left-0 bg-white border border-gray-100 px-2 py-1.5 font-medium text-gray-800">
+                            {grade}
+                          </td>
+                          {data.allCourseNames.map((c) => {
+                            const v = row[c] ?? 0;
+                            return (
+                              <td
+                                key={c}
+                                className={`border border-gray-100 px-2 py-1.5 text-center ${
+                                  v > 0 ? "text-purple-700 font-medium" : "text-gray-200"
+                                }`}
+                              >
+                                {v > 0 ? fmtRM(v) : "-"}
+                              </td>
+                            );
+                          })}
+                          <td className="border border-gray-100 px-2 py-1.5 text-center font-bold text-gray-800 bg-indigo-50/50">
+                            {fmtRM(total)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── 学期×年级 ── */}
+      {active.has("termGrade") && (
+        <section className="card-modern p-5">
+          <SectionTitle icon="📅" title="学期 × 年级 收入交叉" />
+          {periodsWithRevenue.length === 0 ? (
+            <Empty />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="sticky left-0 bg-gray-50 border border-gray-200 px-2 py-1.5 text-left font-semibold text-gray-700 min-w-[60px]">
+                      学期
+                    </th>
+                    {data.allGradeNames
+                      .filter((g) =>
+                        periodsWithRevenue.some((t) => data.termGradeMatrix[t.period]?.[g] > 0)
+                      )
+                      .map((g) => (
+                        <th
+                          key={g}
+                          className="border border-gray-200 px-2 py-1.5 text-center font-semibold text-gray-700 min-w-[62px] whitespace-nowrap"
+                        >
+                          {g}
+                        </th>
+                      ))}
+                    <th className="border border-gray-200 px-2 py-1.5 text-center font-semibold bg-indigo-50 min-w-[70px]">
+                      合计
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {periodsWithRevenue.map((term) => {
+                    const row = data.termGradeMatrix[term.period] || {};
+                    const activeGrades = data.allGradeNames.filter((g) =>
+                      periodsWithRevenue.some((t) => data.termGradeMatrix[t.period]?.[g] > 0)
+                    );
+                    const total = activeGrades.reduce((s, g) => s + (row[g] ?? 0), 0);
+                    return (
+                      <tr key={term.period} className="hover:bg-gray-50">
+                        <td className="sticky left-0 bg-white border border-gray-100 px-2 py-1.5 font-medium text-gray-800">
+                          第{term.period}期
+                        </td>
+                        {activeGrades.map((g) => {
+                          const v = row[g] ?? 0;
+                          return (
+                            <td
+                              key={g}
+                              className={`border border-gray-100 px-2 py-1.5 text-center ${
+                                v > 0 ? "text-blue-700 font-medium" : "text-gray-200"
                               }`}
                             >
                               {v > 0 ? fmtRM(v) : "-"}

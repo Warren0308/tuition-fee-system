@@ -15,19 +15,23 @@ import {
 
 export { activeInTermWhere } from "@/lib/fee-baseline";
 
-/** 查询在 billingTermId 仍有应缴项目的学生（待支付 / 批量结算 / 仪表板共用） */
+/**
+ * 查询在 billingTermId 仍有应缴项目的学生（待支付 / 批量结算 / 仪表板共用）
+ *
+ * 注意：这里用实际计费学期 billingTermId 来判断学生是否仍在读（选课/额外费用是否有效），
+ * 而不是 fee_lookup_term（第5期起改为第4期）。fee_lookup_term 只用于查费用金额，
+ * 不能用于判断学生是否已经停止补习。
+ */
 export function studentBillableInTermWhere(
   billingTermId: number,
-  terms?: AcademicTerm[]
+  _terms?: AcademicTerm[]
 ) {
-  const feeWhere = terms
-    ? activeInTermWhereForBilling(billingTermId, terms)
-    : activeInTermWhere(billingTermId);
+  const activeWhere = activeInTermWhere(billingTermId);
   return {
     isActive: true,
     OR: [
-      { enrollments: { some: feeWhere } },
-      { extraFees: { some: feeWhere } },
+      { enrollments: { some: activeWhere } },
+      { extraFees: { some: activeWhere } },
     ],
   };
 }
