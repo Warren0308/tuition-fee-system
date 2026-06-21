@@ -36,14 +36,14 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 统计分析：老师不可访问
+  // 统计分析：仅管理员可访问（收费员、老师均不可）
   if (pathname === "/stats" || pathname.startsWith("/stats/")) {
     if (!canAccessStats(roles ?? [])) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }
 
-  // 缴费/结算：老师不可访问
+  // 缴费/结算：仅老师不可访问（管理员、收费员正常）
   if (pathname.startsWith("/billing")) {
     if (!canAccessBilling(roles ?? [])) {
       return NextResponse.redirect(new URL("/dashboard", req.url));

@@ -17,11 +17,12 @@ export function isTeacherOnly(roles: string[]): boolean {
   );
 }
 
-/** 统计分析、报表、缴费台账等财务数据 */
+/** 统计分析：仅管理员可访问 */
 export function canAccessStats(roles: string[]): boolean {
-  return isAdminUser(roles) || isRecipientUser(roles);
+  return isAdminUser(roles);
 }
 
+/** 缴费/结算：管理员与收费员可访问 */
 export function canAccessBilling(roles: string[]): boolean {
-  return canAccessStats(roles);
+  return isAdminUser(roles) || isRecipientUser(roles);
 }

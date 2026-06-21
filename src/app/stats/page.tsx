@@ -27,7 +27,7 @@ export default async function StatsPage() {
         <div className="card-modern p-8 text-center max-w-md">
           <div className="text-4xl mb-3">⛔</div>
           <h2 className="text-xl font-bold mb-2">访问受限</h2>
-          <p className="text-gray-600 mb-4">统计分析仅管理员与收费员可查看</p>
+          <p className="text-gray-600 mb-4">统计分析仅管理员可查看</p>
           <Link href="/dashboard" className="text-blue-600 hover:underline">
             ← 返回工作台
           </Link>
