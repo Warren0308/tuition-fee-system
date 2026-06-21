@@ -4,10 +4,7 @@ import {
   getCurrentAcademicTerm,
   type AcademicTerm,
 } from "@/lib/academic-year";
-import {
-  activeInTermWhere,
-  resolveFeeLookupTermId,
-} from "@/lib/fee-baseline";
+import { activeInTermWhere } from "@/lib/fee-baseline";
 import { isTermForceClosedByTermId } from "@/lib/term-force-close";
 
 /**
@@ -62,15 +59,14 @@ export async function calculateUnpaidForStudent(
     };
   }
 
-  const terms = await getAcademicYearTerms();
-  const feeTermId = resolveFeeLookupTermId(termId, terms);
-
+  // 用实际计费学期查选课（feeTermId 只影响价格来源，不影响哪些人有选课）
+  // 若用 feeTermId(第4期) 做过滤，第5期后新注册的学生 startTermId > 第4期 → 无法结算
   // 并行获取：选课、额外费用（应缴结构）、账单（当期实缴）
   const [enrollments, extraFees, payment] = await Promise.all([
     prisma.studentEnrollment.findMany({
       where: {
         studentId,
-        ...activeInTermWhere(feeTermId),
+        ...activeInTermWhere(termId),
       },
       include: {
         course: { include: { fees: true } },
@@ -79,7 +75,7 @@ export async function calculateUnpaidForStudent(
     prisma.studentExtraFee.findMany({
       where: {
         studentId,
-        ...activeInTermWhere(feeTermId),
+        ...activeInTermWhere(termId),
       },
       include: { extraFeeType: true },
     }),
@@ -205,11 +201,11 @@ export async function calculateUnpaidForStudents(
   if (studentIds.length === 0) return result;
 
   const terms = await getAcademicYearTerms();
-  const feeTermId = resolveFeeLookupTermId(termId, terms);
 
   const billingTerm = terms.find((t) => t.id === termId);
 
   // 一次性查询所有需要的数据（含 force-close 记录）
+  // 注意：用实际计费学期 termId 过滤选课，第5期后新注册的学生才能被正确结算
   const [students, enrollments, extraFees, payments, forceCloses] = await Promise.all([
     prisma.student.findMany({
       where: { id: { in: studentIds } },
@@ -218,14 +214,14 @@ export async function calculateUnpaidForStudents(
     prisma.studentEnrollment.findMany({
       where: {
         studentId: { in: studentIds },
-        ...activeInTermWhere(feeTermId),
+        ...activeInTermWhere(termId),
       },
       include: { course: { include: { fees: true } } },
     }),
     prisma.studentExtraFee.findMany({
       where: {
         studentId: { in: studentIds },
-        ...activeInTermWhere(feeTermId),
+        ...activeInTermWhere(termId),
       },
       include: { extraFeeType: true },
     }),

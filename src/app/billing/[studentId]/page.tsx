@@ -10,7 +10,6 @@ import {
   calculateUnpaidForStudent,
   resolveBillingTerm,
 } from "@/lib/billing-utils";
-import { resolveFeeLookupTermId } from "@/lib/fee-baseline";
 import { COURSE_GROUP_COLORS, COURSE_GROUP_LABELS } from "@/lib/secondary-courses";
 
 async function getData(studentId: string, year?: number, termIndex?: number) {
@@ -22,10 +21,6 @@ async function getData(studentId: string, year?: number, termIndex?: number) {
       : null;
 
   const termId = currentTerm?.id;
-  const feeTermId =
-    termId != null
-      ? resolveFeeLookupTermId(termId, academicTerms)
-      : undefined;
 
   // 基础学生查询
   const student = await prisma.student.findUnique({
@@ -54,12 +49,13 @@ async function getData(studentId: string, year?: number, termIndex?: number) {
 
   if (!student) return null;
 
-  // 筛选应缴结构（第5期起以第4期为准）
-  const filteredEnrollments = feeTermId
+  // 筛选该学期有效的选课（用实际计费学期 termId，而非 feeTermId）
+  // 若用 feeTermId(第4期) 过滤，第5期后新注册的学生 startTermId > 第4期 → 界面显示空选课
+  const filteredEnrollments = termId
     ? student.enrollments.filter(
         (enrollment) =>
-          enrollment.startTermId <= feeTermId &&
-          (!enrollment.endTermId || enrollment.endTermId >= feeTermId)
+          enrollment.startTermId <= termId &&
+          (!enrollment.endTermId || enrollment.endTermId >= termId)
       )
     : student.enrollments.filter((e) => !e.endTermId);
 
@@ -94,11 +90,11 @@ async function getData(studentId: string, year?: number, termIndex?: number) {
       }
     });
     
-    studentExtraFees = feeTermId
+    studentExtraFees = termId
       ? allExtraFees.filter(
           (fee) =>
-            fee.startTermId <= feeTermId &&
-            (!fee.endTermId || fee.endTermId >= feeTermId)
+            fee.startTermId <= termId &&
+            (!fee.endTermId || fee.endTermId >= termId)
         )
       : allExtraFees.filter((fee) => !fee.endTermId);
   } catch (e) {

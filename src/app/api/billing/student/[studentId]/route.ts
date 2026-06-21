@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuthOrRedirect } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
-import { getAcademicYearTerms } from "@/lib/academic-year";
-import { resolveFeeLookupTermId } from "@/lib/fee-baseline";
-
 export async function POST(req: Request, { params }: { params: { studentId: string } }) {
   const auth = await requireAuthOrRedirect(req);
   if (!auth.ok) return auth.response;
@@ -23,9 +20,6 @@ export async function POST(req: Request, { params }: { params: { studentId: stri
     where: { year, termIndex }
   });
   const termId = currentTerm?.id;
-  const academicTerms = await getAcademicYearTerms();
-  const feeTermId =
-    termId != null ? resolveFeeLookupTermId(termId, academicTerms) : undefined;
 
   const student = await prisma.student.findUnique({
     where: { id: studentId },
@@ -38,12 +32,13 @@ export async function POST(req: Request, { params }: { params: { studentId: stri
     return NextResponse.json({ ok: false, error: "学生不存在" }, { status: 404 });
   }
 
-  // 筛选应缴结构（第5期起以第4期为准）
-  const validEnrollments = feeTermId
+  // 筛选该学期有效的选课（用实际计费学期 termId）
+  // 若用 feeTermId(第4期)，第5期后新注册的学生 startTermId > 第4期 → 无法提交结算
+  const validEnrollments = termId
     ? student.enrollments.filter(
         (e) =>
-          e.startTermId <= feeTermId &&
-          (!e.endTermId || e.endTermId >= feeTermId)
+          e.startTermId <= termId &&
+          (!e.endTermId || e.endTermId >= termId)
       )
     : student.enrollments.filter((e) => !e.endTermId);
 
@@ -137,12 +132,12 @@ export async function POST(req: Request, { params }: { params: { studentId: stri
       }
     });
 
-    // 筛选应缴结构有效的额外费用
-    const studentExtraFees = feeTermId
+    // 筛选该学期有效的额外费用（用实际计费学期 termId）
+    const studentExtraFees = termId
       ? allExtraFees.filter(
           (fee) =>
-            fee.startTermId <= feeTermId &&
-            (!fee.endTermId || fee.endTermId >= feeTermId)
+            fee.startTermId <= termId &&
+            (!fee.endTermId || fee.endTermId >= termId)
         )
       : allExtraFees.filter((fee) => !fee.endTermId);
 
