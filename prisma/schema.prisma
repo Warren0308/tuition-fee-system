@@ -16,6 +16,7 @@ model User {
   avatarUrl          String?
   isActive           Boolean              @default(true)
   mustChangePassword Boolean              @default(false)
+  sessionVersion     Int                  @default(0)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   resetTokens        PasswordResetToken[]

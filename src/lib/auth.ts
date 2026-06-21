@@ -44,20 +44,22 @@ export const authOptions: NextAuthOptions = {
           name: user.username, 
           roles: roleCodes,
           mustChangePassword: user.mustChangePassword,
-          needsActivation: !activated
+          needsActivation: !activated,
+          sessionVersion: (user as any).sessionVersion ?? 0,
         } as any;
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user, trigger }) {
-      // 初次登录
+      // 初次登录：把 sessionVersion 写入 token
       if (user) {
         token.userId = (user as any).id;
         token.roles = (user as any).roles ?? token.roles ?? [];
         token.mustChangePassword = (user as any).mustChangePassword ?? false;
         token.needsActivation = (user as any).needsActivation ?? false;
         token.isActive = true;
+        token.sessionVersion = (user as any).sessionVersion ?? 0;
         token.lastChecked = Math.floor(Date.now() / 1000);
         return token;
       }
@@ -85,11 +87,22 @@ export const authOptions: NextAuthOptions = {
             return token;
           }
 
+          // sessionVersion 不一致说明管理员已强制登出（如修改密码）
+          const dbVersion = (dbUser as any).sessionVersion ?? 0;
+          const tokenVersion = (token.sessionVersion as number | undefined) ?? 0;
+          if (dbVersion !== tokenVersion) {
+            token.isActive = false;
+            token.roles = [];
+            token.lastChecked = now;
+            return token;
+          }
+
           const activated = isAccountActivated(dbUser);
           token.roles = dbUser.roles.map((r) => r.role.code);
           token.mustChangePassword = dbUser.mustChangePassword;
           token.needsActivation = !activated;
           token.isActive = true;
+          token.sessionVersion = dbVersion;
           token.lastChecked = now;
         } catch (e) {
           console.error('JWT 刷新失败:', e);
@@ -100,7 +113,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      // 若用户已被停用 - 返回 null session
+      // 若用户已被停用或 session 版本失效 - 返回 null session
       if (token.isActive === false) {
         return null as any;
       }
