@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api-auth";
+import { canAccessStats, requireAuth } from "@/lib/api-auth";
 import { getAcademicYearTerms } from "@/lib/academic-year";
 import { calculateUnpaidForStudents } from "@/lib/billing-utils";
 import { studentBillableInTermWhere } from "@/lib/student-billing-eligibility";
 import { billingCyclePaymentWhere } from "@/lib/term-utils";
 
 export async function GET() {
-  await requireAuth();
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+  if (!canAccessStats(auth.session.roles)) {
+    return NextResponse.json({ error: "无权访问统计数据" }, { status: 403 });
+  }
 
   try {
     const [terms, allPayments] = await Promise.all([

@@ -6,6 +6,7 @@ import { calculateUnpaidForStudents, getCurrentOrLatestTerm } from "@/lib/billin
 import { getAcademicYearTerms } from "@/lib/academic-year";
 import { studentBillableInTermWhere } from "@/lib/student-billing-eligibility";
 import { formatTermLabelFull } from "@/lib/term-utils";
+import { canAccessStats, isTeacherOnly } from "@/lib/roles";
 
 async function getDashboardData() {
   try {
@@ -95,8 +96,11 @@ export default async function DashboardPage() {
     );
   }
   
-  const isAdmin = (session as any).roles?.includes("ADMIN");
-  const data = await getDashboardData();
+  const roles = ((session as any).roles as string[]) || [];
+  const isAdmin = roles.includes("ADMIN");
+  const teacherOnly = isTeacherOnly(roles);
+  const canViewStats = canAccessStats(roles);
+  const data = teacherOnly ? null : await getDashboardData();
 
   return (
     <main className="min-h-screen p-6 space-y-8">
@@ -121,7 +125,8 @@ export default async function DashboardPage() {
         </div>
       </div>
       
-      {/* 数据概览卡片 */}
+      {/* 数据概览卡片（老师不可见） */}
+      {!teacherOnly && data && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
         <div className="card-modern p-6 group">
           <div className="flex items-center justify-between">
@@ -182,6 +187,15 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {teacherOnly && (
+        <div className="card-modern p-6 animate-fade-in">
+          <p className="text-gray-600">
+            您已登录教师账号，可查看课表与教师信息。财务统计与缴费数据仅管理员和收费员可访问。
+          </p>
+        </div>
+      )}
 
       {/* 功能区域 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -193,6 +207,7 @@ export default async function DashboardPage() {
               <span className="text-sm text-gray-500">常用功能</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {!teacherOnly && (
               <Link href="/students/new" className="group">
                 <div className="p-4 border border-gray-200 rounded-xl hover:border-indigo-300 transition-all duration-200 hover:shadow-md">
                   <div className="flex items-center space-x-3">
@@ -206,7 +221,9 @@ export default async function DashboardPage() {
                   </div>
                 </div>
               </Link>
+              )}
 
+              {!teacherOnly && (
               <Link href="/students" className="group">
                 <div className="p-4 border border-gray-200 rounded-xl hover:border-emerald-300 transition-all duration-200 hover:shadow-md">
                   <div className="flex items-center space-x-3">
@@ -220,6 +237,7 @@ export default async function DashboardPage() {
                   </div>
                 </div>
               </Link>
+              )}
 
               <Link href="/search" className="group">
                 <div className="p-4 border border-gray-200 rounded-xl hover:border-purple-300 transition-all duration-200 hover:shadow-md">
@@ -249,6 +267,8 @@ export default async function DashboardPage() {
                 </div>
               </Link>
 
+              {!teacherOnly && (
+              <>
               <Link href="/billing/batch" className="group">
                 <div className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition-all duration-200 hover:shadow-md">
                   <div className="flex items-center space-x-3">
@@ -276,34 +296,40 @@ export default async function DashboardPage() {
                   </div>
                 </div>
               </Link>
+              </>
+              )}
 
-              <Link href="/stats" className="group">
-                <div className="p-4 border border-gray-200 rounded-xl hover:border-violet-300 transition-all duration-200 hover:shadow-md">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
-                      📊
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-800 group-hover:text-violet-600 transition-colors">统计分析</h3>
-                      <p className="text-sm text-gray-500">多维度可选统计图表</p>
+              {canViewStats && (
+                <Link href="/stats" className="group">
+                  <div className="p-4 border border-gray-200 rounded-xl hover:border-violet-300 transition-all duration-200 hover:shadow-md">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
+                        📊
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-800 group-hover:text-violet-600 transition-colors">统计分析</h3>
+                        <p className="text-sm text-gray-500">多维度可选统计图表</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              )}
 
-              <Link href="/admin/reports" className="group">
-                <div className="p-4 border border-gray-200 rounded-xl hover:border-pink-300 transition-all duration-200 hover:shadow-md">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg flex items-center justify-center text-white">
-                      📊
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-800 group-hover:text-pink-600 transition-colors">报表中心</h3>
-                      <p className="text-sm text-gray-500">收入分析与未付统计</p>
+              {isAdmin && (
+                <Link href="/admin/reports" className="group">
+                  <div className="p-4 border border-gray-200 rounded-xl hover:border-pink-300 transition-all duration-200 hover:shadow-md">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg flex items-center justify-center text-white">
+                        📊
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-800 group-hover:text-pink-600 transition-colors">报表中心</h3>
+                        <p className="text-sm text-gray-500">收入分析与未付统计</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              )}
 
               <Link href="/schedule" className="group">
                 <div className="p-4 border border-gray-200 rounded-xl hover:border-cyan-300 transition-all duration-200 hover:shadow-md">
@@ -322,7 +348,8 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* 最近学生 */}
+        {/* 最近学生（老师不可见） */}
+        {!teacherOnly && data && (
         <div className="card-modern p-6 animate-fade-in">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-800">最新学生</h2>
@@ -363,6 +390,7 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* 管理功能（仅管理员可见） */}

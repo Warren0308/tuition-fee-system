@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { canAccessBilling, canAccessStats } from "@/lib/roles";
 
 export default function Navigation() {
   const { data: session, status } = useSession();
@@ -22,7 +23,10 @@ export default function Navigation() {
   if (!mounted || status === "loading") return null;
   if (!session) return null;
 
-  const isAdmin = (session as any).roles?.includes("ADMIN");
+  const roles = ((session as any).roles as string[]) || [];
+  const isAdmin = roles.includes("ADMIN");
+  const canViewStats = canAccessStats(roles);
+  const canViewBilling = canAccessBilling(roles);
 
   return (
     <>
@@ -138,10 +142,16 @@ export default function Navigation() {
               <MobileLink href="/search" icon="🔍" label="查询" pathname={pathname} />
               <MobileLink href="/teachers" icon="👨‍🏫" label="老师" pathname={pathname} />
               <MobileLink href="/schedule" icon="📅" label="课表" pathname={pathname} />
-              <MobileLink href="/billing/batch" icon="⚡" label="批量结算" pathname={pathname} />
-              <MobileLink href="/billing/unpaid" icon="⏰" label="待支付账单" pathname={pathname} />
-              <MobileLink href="/billing/ledger" icon="📋" label="缴费台账" pathname={pathname} />
-              <MobileLink href="/stats" icon="📊" label="统计分析" pathname={pathname} />
+              {canViewBilling && (
+                <>
+                  <MobileLink href="/billing/batch" icon="⚡" label="批量结算" pathname={pathname} />
+                  <MobileLink href="/billing/unpaid" icon="⏰" label="待支付账单" pathname={pathname} />
+                  <MobileLink href="/billing/ledger" icon="📋" label="缴费台账" pathname={pathname} />
+                </>
+              )}
+              {canViewStats && (
+                <MobileLink href="/stats" icon="📊" label="统计分析" pathname={pathname} />
+              )}
 
               {isAdmin && (
                 <>
@@ -177,7 +187,11 @@ export default function Navigation() {
           <BottomNavLink href="/dashboard" icon="🏠" label="工作台" pathname={pathname} />
           <BottomNavLink href="/students" icon="👥" label="学生" pathname={pathname} />
           <BottomNavLink href="/search" icon="🔍" label="查询" pathname={pathname} />
-          <BottomNavLink href="/billing/unpaid" icon="⏰" label="待付" pathname={pathname} />
+          {canViewBilling ? (
+            <BottomNavLink href="/billing/unpaid" icon="⏰" label="待付" pathname={pathname} />
+          ) : (
+            <BottomNavLink href="/schedule" icon="📅" label="课表" pathname={pathname} />
+          )}
           <BottomNavLink href="/profile" icon="👤" label="我的" pathname={pathname} />
         </div>
       </div>

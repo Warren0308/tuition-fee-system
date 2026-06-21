@@ -1,7 +1,7 @@
 // 优特学院 PWA Service Worker
 // 策略：网络优先，离线降级（适合后端驱动的管理系统）
 
-const VERSION = "v1.0.1";
+const VERSION = "v1.0.2";
 const CACHE_NAME = `youte-academy-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 

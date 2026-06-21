@@ -13,6 +13,9 @@ export interface AuthSession {
   isAdmin: boolean;
 }
 
+/** 统计分析：管理员与收费员可访问，老师不可见 */
+export { canAccessStats, canAccessBilling, isTeacherOnly } from "@/lib/roles";
+
 /**
  * 要求登录。未登录返回 401。
  */

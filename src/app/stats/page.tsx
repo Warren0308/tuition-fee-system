@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { canAccessStats } from "@/lib/roles";
 import Link from "next/link";
 import { StatsClient } from "./StatsClient";
 
@@ -13,6 +14,22 @@ export default async function StatsPage() {
           <h2 className="text-xl font-bold mb-2">需要登录</h2>
           <Link className="text-blue-600 hover:underline" href="/login">
             立即登录
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const roles = ((session as any).roles as string[]) || [];
+  if (!canAccessStats(roles)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="card-modern p-8 text-center max-w-md">
+          <div className="text-4xl mb-3">⛔</div>
+          <h2 className="text-xl font-bold mb-2">访问受限</h2>
+          <p className="text-gray-600 mb-4">统计分析仅管理员与收费员可查看</p>
+          <Link href="/dashboard" className="text-blue-600 hover:underline">
+            ← 返回工作台
           </Link>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { canAccessBilling, canAccessStats } from "@/lib/roles";
 
 const ADMIN_PATHS = ["/admin", "/admin/terms", "/admin/catalog", "/admin/catalog/fees", "/admin/catalog/extras", "/admin/users", "/admin/reports"];
 
@@ -26,11 +27,26 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  const roles = (token as any).roles as string[] | undefined;
+
   // 管理层保护
   if (ADMIN_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))) {
-    const roles = (token as any).roles as string[] | undefined;
     if (!roles?.includes("ADMIN")) {
       return NextResponse.json({ ok: false, error: "无权访问" }, { status: 403 });
+    }
+  }
+
+  // 统计分析：老师不可访问
+  if (pathname === "/stats" || pathname.startsWith("/stats/")) {
+    if (!canAccessStats(roles ?? [])) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+
+  // 缴费/结算：老师不可访问
+  if (pathname.startsWith("/billing")) {
+    if (!canAccessBilling(roles ?? [])) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }
 
